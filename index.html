@@ -570,6 +570,7 @@
 
   .pulse { animation: pulse 1.5s ease infinite; }
 </style>
+<script src="https://www.paypal.com/sdk/js?client-id=BAA2CJM8JTbjHUDvWb2dPeZLgsW0vJewjv7v5IgR2slf6qxtMxGVC6R7u21zwxmotqR9iWBCfbERlThvXw&components=hosted-buttons&disable-funding=venmo&currency=USD"></script>
 </head>
 <body>
 
@@ -724,7 +725,7 @@
         <strong id="upgrade-title">Get your full PDF report</strong>
         <span id="upgrade-desc">Personalized 30-day plan + projections + investment tips</span>
       </div>
-      <button class="btn-upgrade" id="upgrade-btn">Unlock for $4.99</button>
+      <div id="paypal-container-WYYYEG8A7NPGU" style="min-width:150px"></div>
     </div>
 
     <button class="btn-reset" id="btn-reset" onclick="reset()">← Start Over / Volver a empezar</button>
@@ -1099,6 +1100,11 @@ Format: Use **bold** for key figures or important terms. Keep total response und
     document.getElementById('ring-fill').style.strokeDashoffset = 408;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+</script>
+<script>
+  paypal.HostedButtons({
+    hostedButtonId: "WYYYEG8A7NPGU",
+  }).render("#paypal-container-WYYYEG8A7NPGU")
 </script>
 </body>
 </html>
