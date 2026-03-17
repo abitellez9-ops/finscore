@@ -1013,14 +1013,10 @@ Give exactly 5 numbered, specific, actionable steps they should take NOW based o
 Format: Use **bold** for key figures or important terms. Keep total response under 350 words. Be direct, no fluff.`;
 
     try {
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{ role: "user", content: prompt }]
-        })
+        body: JSON.stringify({ prompt })
       });
 
       const json = await response.json();
