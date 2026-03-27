@@ -631,6 +631,10 @@
           <input type="number" id="exp-entertainment" placeholder="100" min="0">
         </div>
         <div class="field">
+          <label id="lbl-tuition">Tuition / School Fees</label>
+          <input type="number" id="exp-tuition" placeholder="300" min="0">
+        </div>
+        <div class="field">
           <label id="lbl-other-exp">Other Expenses</label>
           <input type="number" id="exp-other" placeholder="150" min="0">
         </div>
@@ -741,6 +745,7 @@
 <script>
   // ─── Language ───────────────────────────────────────────────
   let lang = 'en';
+  let lastAnalysis = null;
 
   const T = {
     en: {
@@ -758,6 +763,7 @@
       lblTransport: 'Transportation',
       lblUtilities: 'Utilities & Subscriptions',
       lblEntertainment: 'Entertainment',
+      lblTuition: 'Tuition / School Fees',
       lblOtherExp: 'Other Expenses',
       lblSavings: 'Monthly Savings',
       lblEmergency: 'Emergency Fund (months)',
@@ -797,6 +803,7 @@
       lblTransport: 'Transporte',
       lblUtilities: 'Servicios y Suscripciones',
       lblEntertainment: 'Entretenimiento',
+      lblTuition: 'Colegiaturas / Cuotas Escolares',
       lblOtherExp: 'Otros Gastos',
       lblSavings: 'Ahorro Mensual',
       lblEmergency: 'Fondo de Emergencia (meses)',
@@ -842,6 +849,7 @@
     document.getElementById('lbl-transport').textContent = t.lblTransport;
     document.getElementById('lbl-utilities').textContent = t.lblUtilities;
     document.getElementById('lbl-entertainment').textContent = t.lblEntertainment;
+    document.getElementById('lbl-tuition').textContent = t.lblTuition;
     document.getElementById('lbl-other-exp').textContent = t.lblOtherExp;
     document.getElementById('lbl-savings').textContent = t.lblSavings;
     document.getElementById('lbl-emergency').textContent = t.lblEmergency;
@@ -865,6 +873,45 @@
     document.querySelectorAll('.debt-name-placeholder').forEach(el => el.placeholder = t.debtName);
     document.querySelectorAll('.debt-amount-placeholder').forEach(el => el.placeholder = t.debtAmount);
     document.getElementById('concern').placeholder = lang === 'en' ? 'e.g. I spend too much on food...' : 'ej. Gasto demasiado en comida...';
+    if (lastAnalysis && document.getElementById('results').classList.contains('show')) {
+      const sc = lastAnalysis.score;
+      const d = lastAnalysis.data;
+      const [v, ds] = scoreVerdict(sc, l);
+      const col = scoreColor(sc);
+      document.getElementById('score-verdict').textContent = v;
+      document.getElementById('score-verdict').style.color = col;
+      document.getElementById('score-desc').textContent = ds;
+      const ml = T[l].metricLabels;
+      document.getElementById('metrics-row').innerHTML = [
+        { value: d.savingsRate.toFixed(1) + '%', label: ml[0], color: d.savingsRate >= 15 ? 'var(--good)' : d.savingsRate >= 5 ? 'var(--warn)' : 'var(--danger)' },
+        { value: (d.debtToIncome * 100).toFixed(0) + '%', label: ml[1], color: d.debtToIncome === 0 ? 'var(--good)' : d.debtToIncome < 0.2 ? 'var(--warn)' : 'var(--danger)' },
+        { value: (d.netMonthly >= 0 ? '+' : '') + '$' + Math.abs(d.netMonthly).toFixed(0), label: ml[2], color: d.netMonthly >= 0 ? 'var(--good)' : 'var(--danger)' }
+      ].map(function(m) { return '<div class="metric-box"><div class="metric-value" style="color:' + m.color + '">' + m.value + '</div><div class="metric-label">' + m.label + '</div></div>'; }).join('');
+      reAnalyze(l, d);
+    }
+  }
+
+  function reAnalyze(l, d) {
+    var promptLang = l === 'es' ? 'Spanish' : 'English';
+    var prompt = 'You are a professional financial advisor. Analyze this person finances and respond ONLY in ' + promptLang + '.\n\nFINANCIAL DATA:\n- Monthly income: $' + d.income.toFixed(0) + '\n- Total monthly expenses: $' + d.totalExp.toFixed(0) + '\n- Monthly savings: $' + d.savings.toFixed(0) + '\n- Savings rate: ' + d.savingsRate.toFixed(1) + '%\n- Emergency fund: ' + d.emergency + ' months\n- Total debts: $' + d.totalDebt.toFixed(0) + '\n- Net monthly: $' + d.netMonthly.toFixed(0) + '\n\nProvide TWO sections:\n\n**DIAGNOSIS**\nWrite 3-4 sentences. Be specific with numbers. Identify 1-2 biggest risks.\n\n**ACTION PLAN**\nGive exactly 5 numbered actionable steps. 1-2 sentences each. Ordered by priority.\n\nFormat: Use **bold** for key figures. Under 350 words. Be direct.';
+    document.getElementById('diagnosis-text').innerHTML = '<span style="color:var(--muted)">Translating...</span>';
+    document.getElementById('plan-text').innerHTML = '';
+    fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: prompt })
+    }).then(function(r) { return r.json(); }).then(function(json) {
+      var fullText = (json.content || []).map(function(b) { return b.text || ''; }).join('');
+      var diagMatch = fullText.match(/\*\*DIAGNOSIS\*\*([\s\S]*?)(?=\*\*ACTION PLAN\*\*|$)/i);
+      var planMatch = fullText.match(/\*\*ACTION PLAN\*\*([\s\S]*?)$/i);
+      function fmt(t) { return t.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); }
+      document.getElementById('diagnosis-text').innerHTML = fmt(diagMatch ? diagMatch[1].trim() : '');
+      document.getElementById('plan-text').innerHTML = fmt(planMatch ? planMatch[1].trim() : '');
+    }).catch(function() {
+      function fmt(t) { return t.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>'); }
+      document.getElementById('diagnosis-text').innerHTML = fmt(lastAnalysis.diagnosisText);
+      document.getElementById('plan-text').innerHTML = fmt(lastAnalysis.planText);
+    });
   }
 
   // ─── Debts ───────────────────────────────────────────────────
@@ -963,6 +1010,7 @@
                      (parseFloat(document.getElementById('exp-transport').value) || 0) +
                      (parseFloat(document.getElementById('exp-utilities').value) || 0) +
                      (parseFloat(document.getElementById('exp-entertainment').value) || 0) +
+                     (parseFloat(document.getElementById('exp-tuition').value) || 0) +
                      (parseFloat(document.getElementById('exp-other').value) || 0);
     const savings = parseFloat(document.getElementById('monthly-savings').value) || 0;
     const emergency = parseFloat(document.getElementById('emergency-fund').value) || 0;
@@ -1082,6 +1130,7 @@ Format: Use **bold** for key figures or important terms. Keep total response und
 
       document.getElementById('diagnosis-text').innerHTML = fmt(diagnosisText);
       document.getElementById('plan-text').innerHTML = fmt(planText);
+      lastAnalysis = { score, data, diagnosisText, planText };
 
     } catch (err) {
       document.getElementById('loading').classList.remove('show');
@@ -1098,9 +1147,13 @@ Format: Use **bold** for key figures or important terms. Keep total response und
   }
 </script>
 <script>
-  paypal.HostedButtons({
-    hostedButtonId: "WYYYEG8A7NPGU",
-  }).render("#paypal-container-WYYYEG8A7NPGU")
+  window.addEventListener('load', function() {
+    if (typeof paypal !== 'undefined') {
+      paypal.HostedButtons({
+        hostedButtonId: "WYYYEG8A7NPGU",
+      }).render("#paypal-container-WYYYEG8A7NPGU");
+    }
+  });
 </script>
 </body>
 </html>
